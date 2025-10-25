@@ -3,7 +3,7 @@ from ultralytics import YOLO
 import easyocr
 from bien_so_map_dau import BIEN_SO_MAP_DAU
 from bien_so_map import BIEN_SO_MAP
-from chu_xe import TEN_CHU
+from chu_xe import CHU_XE
 import tkinter as tk
 from tkinter import Label, Button, Frame, Scrollbar, ttk
 from PIL import Image, ImageTk
@@ -14,7 +14,7 @@ import random
 # 1 CẤU HÌNH MÔ HÌNH & OCR
 # Khởi tạo mô hình YOLO và EasyOCR để phát hiện biển số và nhận diện chữ.
 # =====================================================================
-MODEL_PATH = "D:/hoc_train/runs/detect/train_bien_so_100epoch/weights/best.pt"
+MODEL_PATH = "D:/Do_An_AI/runs/detect/train_bien_so_100epoch/weights/best.pt" #thay đổi đường dẫn tới mô hình của bạn
 model = YOLO(MODEL_PATH)  # Tải mô hình YOLO đã huấn luyện trước để phát hiện biển số
 reader = easyocr.Reader(['vi'], gpu=True)  # Khởi tạo EasyOCR cho nhận diện chữ tiếng Việt
 
@@ -102,6 +102,7 @@ frame_count = 0  # Bộ đếm khung hình được xử lý
 last_results = []  # Bộ nhớ đệm cho kết quả phát hiện YOLO
 plate_buffer = []  # Bộ đệm để ổn định kết quả nhận diện biển số
 last_confirmed_plate = ""  # Biển số được xác nhận cuối cùng để tránh trùng lặp
+plate_owner_map = {}  # Lưu ánh xạ biển số -> tên chủ xe
 
 # =====================================================================
 # 4 CÁC HÀM XỬ LÝ CHÍNH
@@ -134,7 +135,7 @@ def detect_plate(frame):
 
     frame_count += 1
     # Xử lý mỗi khung hình thứ 5 để giảm tải tính toán
-    if frame_count % 10 == 0:
+    if frame_count % 15 == 0:
         results = model(frame)  # Chạy mô hình YOLO để phát hiện
         last_results = results
     else:
@@ -171,10 +172,7 @@ def detect_plate(frame):
                     (0, 255, 0),
                     2
                 )
-
     return current_plate
-
-plate_owner_map = {}  # Lưu ánh xạ biển số -> tên chủ xe
 
 def stabilize_plate(current_plate):
     """
@@ -199,7 +197,7 @@ def stabilize_plate(current_plate):
 
         # --- Gán tên chủ xe (ngẫu nhiên 1 lần duy nhất cho biển đó) ---
         if current_plate not in plate_owner_map:
-            plate_owner_map[current_plate] = random.choice(TEN_CHU)
+            plate_owner_map[current_plate] = random.choice(CHU_XE)
         ten_chu_xe = plate_owner_map[current_plate]
 
         # --- Cập nhật giao diện ---
