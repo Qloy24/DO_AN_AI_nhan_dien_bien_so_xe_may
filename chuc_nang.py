@@ -162,6 +162,66 @@ class PlateRecognizer:
         return None  # Nếu chưa đủ điều kiện ổn định thì không trả về gì
 
     # -----------------------------------------------------------------
+    # NHẬN DIỆN BIỂN SỐ TỪ ẢNH TĨNH (TẢI LÊN)
+    # -----------------------------------------------------------------
+    def recognize_from_image(self, image_path):
+        """
+        Nhận diện biển số từ ảnh tĩnh (ảnh được tải lên từ giao diện).
+        Trả về kết quả tương tự như stabilize_plate: 
+            {'plate', 'owner', 'location', 'time'}
+        """
+        # Đọc ảnh từ đường dẫn
+        frame = cv2.imread(image_path)
+        if frame is None:
+            print("⚠️ Không thể đọc ảnh từ:", image_path)
+            return None
+
+        # Phát hiện biển số
+        results = model(frame)
+        current_plate = ""
+
+        for r in results:
+            boxes = r.boxes.xyxy.cpu().numpy() if r.boxes is not None else []
+            for box in boxes:
+                x1, y1, x2, y2 = map(int, box[:4])
+                bien_so_crop = frame[y1:y2, x1:x2]
+                if bien_so_crop.size == 0:
+                    continue
+
+                result = reader.readtext(bien_so_crop)
+                text = " ".join([res[1] for res in result]) if result else ""
+
+                if text:
+                    ma_tinh = text.split("-")[0] if "-" in text else text[:2]
+                    dia_phuong = BIEN_SO_MAP.get(ma_tinh, "Không rõ địa phương")
+                    current_plate = text
+                    # Hiển thị trực tiếp trên ảnh (nếu muốn)
+                    cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
+                    cv2.putText(frame, f"{text} ({dia_phuong})", (x1, y1 - 10),
+                                cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
+
+        # Nếu không đọc được biển số
+        if not current_plate:
+            return None
+
+        # Gán chủ xe ngẫu nhiên nếu chưa có
+        if current_plate not in self.plate_owner_map:
+            self.plate_owner_map[current_plate] = random.choice(CHU_XE)
+
+        ten_chu_xe = self.plate_owner_map[current_plate]
+        ma_tinh = current_plate.split("-")[0] if "-" in current_plate else current_plate[:2]
+        dia_phuong = BIEN_SO_MAP_DAU.get(ma_tinh, "Không rõ địa phương")
+        now = datetime.datetime.now().strftime("%H:%M:%S %d/%m/%Y")
+
+        return {
+            "plate": current_plate,
+            "owner": ten_chu_xe,
+            "location": dia_phuong,
+            "time": now,
+            "image": frame  # Trả thêm ảnh có vẽ khung biển số
+        }
+
+    # -----------------------------------------------------------------
     # GIẢI PHÓNG TÀI NGUYÊN
     # -----------------------------------------------------------------
     def release(self):
